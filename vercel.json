@@ -1,0 +1,11 @@
+{
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/extract.ts": {
+      "maxDuration": 60
+    }
+  }
+}
