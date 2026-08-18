@@ -59,7 +59,10 @@ const PackageSchema = z.object({
     rows: z.array(z.object({
       id: z.string(),
       label: z.string(),
-      selectors: z.record(Scalar),
+      selectors: z.array(z.object({
+        field: z.string(),
+        value: Scalar,
+      })),
       selector_conditions: z.array(z.object({
         field: z.string(),
         op: z.enum(["eq", "neq", "in", "not_in", "gt", "gte", "lt", "lte", "between"]),
@@ -167,8 +170,18 @@ export default async function handler(request: VercelRequest, response: VercelRe
       input: sourceText,
       text: { format: zodTextFormat(PackageSchema, "rate_table_package") },
     });
-    const parsed = modelResponse.output_parsed;
-    if (!parsed) throw new Error("The model returned no structured rate table.");
+    const modelPackage = modelResponse.output_parsed;
+    if (!modelPackage) throw new Error("The model returned no structured rate table.");
+    const parsed = {
+      ...modelPackage,
+      rate_tables: modelPackage.rate_tables.map((table) => ({
+        ...table,
+        rows: table.rows.map((row) => ({
+          ...row,
+          selectors: Object.fromEntries(row.selectors.map((selector) => [selector.field, selector.value])),
+        })),
+      })),
+    };
 
     parsed.sources = body.documents.map((document, index) => ({
       id: `source-${index + 1}`,
