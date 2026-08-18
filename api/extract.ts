@@ -161,13 +161,13 @@ export default async function handler(request: VercelRequest, response: VercelRe
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const response = await client.responses.parse({
+    const modelResponse = await client.responses.parse({
       model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
       instructions: SYSTEM_PROMPT,
       input: sourceText,
       text: { format: zodTextFormat(PackageSchema, "rate_table_package") },
     });
-    const parsed = response.output_parsed;
+    const parsed = modelResponse.output_parsed;
     if (!parsed) throw new Error("The model returned no structured rate table.");
 
     parsed.sources = body.documents.map((document, index) => ({
