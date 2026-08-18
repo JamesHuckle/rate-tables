@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 
 const Scalar = z.union([z.string(), z.number(), z.boolean(), z.null()]);
@@ -141,19 +142,22 @@ function documentPrompt(documents: z.infer<typeof RequestSchema>["documents"]) {
   ).join("\n\n");
 }
 
-export default async function handler(request: Request): Promise<Response> {
+export default async function handler(request: VercelRequest, response: VercelResponse): Promise<void> {
   if (request.method !== "POST") {
-    return Response.json({ message: "Use POST to extract rate tables." }, { status: 405 });
+    response.status(405).json({ message: "Use POST to extract rate tables." });
+    return;
   }
   if (!process.env.OPENAI_API_KEY) {
-    return Response.json({ message: "PDF extraction is not configured on this deployment." }, { status: 503 });
+    response.status(503).json({ message: "PDF extraction is not configured on this deployment." });
+    return;
   }
 
   try {
-    const body = RequestSchema.parse(await request.json());
+    const body = RequestSchema.parse(request.body);
     const sourceText = documentPrompt(body.documents);
     if (sourceText.length > 280_000) {
-      return Response.json({ message: "These PDFs contain too much text for one extraction. Upload fewer or shorter documents." }, { status: 413 });
+      response.status(413).json({ message: "These PDFs contain too much text for one extraction. Upload fewer or shorter documents." });
+      return;
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -193,12 +197,13 @@ export default async function handler(request: Request): Promise<Response> {
     parsed.inputs[0]!.required = true;
     parsed.inputs[0]!.default = false;
 
-    return Response.json(parsed, { headers: { "Cache-Control": "no-store" } });
+    response.setHeader("Cache-Control", "no-store");
+    response.status(200).json(parsed);
   } catch (error) {
     console.error("Rate-table extraction failed", error);
     const message = error instanceof z.ZodError
       ? "The extraction request was invalid."
       : "The PDFs could not be converted into a rate table. Try a text-based PDF with clearer tables.";
-    return Response.json({ message }, { status: 422 });
+    response.status(422).json({ message });
   }
 }
