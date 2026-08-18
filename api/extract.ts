@@ -10,13 +10,7 @@ const Citation = z.object({
   page_number: z.number().int().positive(),
   excerpt: z.string(),
 });
-const RuleCondition: z.ZodType<{
-  op: string;
-  field: string | null;
-  value: z.infer<typeof Scalar>;
-  values: z.infer<typeof Scalar>[];
-  conditions: unknown[];
-}> = z.lazy(() =>
+const RuleCondition: z.ZodTypeAny = z.lazy(() =>
   z.object({
     op: z.string(),
     field: z.string().nullable(),
